@@ -1,5 +1,7 @@
 # Offline-Zetamac
 
+I made this so that I can practice zetamac when there's no wifi! (eg. trip from NZ to NYC)
+
 ## Quickstart (dev servers)
 
 Backend:
