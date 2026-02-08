@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchQuestion, saveRun } from "../api.js";
 import GameSettings from "../components/GameSettings.jsx";
 import GameHUD from "../components/GameHUD.jsx";
@@ -24,6 +24,7 @@ export default function GamePage() {
   const [correct, setCorrect] = useState(0);
   const [gameResult, setGameResult] = useState(null);
   const [saving, setSaving] = useState(false);
+  const autoAdvanceRef = useRef(false);
 
   const opsSelection = useMemo(
     () => Object.keys(ops).filter((key) => ops[key]).join(""),
@@ -58,6 +59,21 @@ export default function GamePage() {
     setRunning(false);
     handleGameOver();
   }, [running, timeLeft]);
+
+  useEffect(() => {
+    if (!running || !question) return;
+    const trimmed = answer.trim();
+    if (!trimmed) return;
+    const parsed = Number.parseInt(trimmed, 10);
+    if (!Number.isFinite(parsed) || parsed !== question.answer) return;
+    if (autoAdvanceRef.current) return;
+    autoAdvanceRef.current = true;
+    setAnswer("");
+    (async () => {
+      await submitAnswer(trimmed);
+      autoAdvanceRef.current = false;
+    })();
+  }, [answer, question, running]);
 
   async function loadQuestion() {
     const next = await fetchQuestion({
