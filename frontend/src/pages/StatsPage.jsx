@@ -4,27 +4,37 @@ import GameSettings from "../components/GameSettings.jsx";
 import HighScoreCard from "../components/HighScoreCard.jsx";
 import HistoryChart from "../components/HistoryChart.jsx";
 
-const MODE = "timed_60";
+const MODE = "timed_custom";
 
 export default function StatsPage() {
-  const [difficulty, setDifficulty] = useState("easy");
   const [ops, setOps] = useState({ "+": true, "-": true, "*": true, "/": false });
+  const [addRangeA, setAddRangeA] = useState({ min: 2, max: 100 });
+  const [addRangeB, setAddRangeB] = useState({ min: 2, max: 100 });
+  const [multRangeA, setMultRangeA] = useState({ min: 2, max: 12 });
+  const [multRangeB, setMultRangeB] = useState({ min: 2, max: 100 });
+  const [duration, setDuration] = useState(60);
   const [runs, setRuns] = useState([]);
   const [highScore, setHighScore] = useState(0);
   const [showAvg, setShowAvg] = useState(true);
 
-  const opsString = useMemo(
+  const opsSelection = useMemo(
     () => Object.keys(ops).filter((key) => ops[key]).join(""),
     [ops]
   );
 
+  const opsKey = useMemo(() => {
+    return `${opsSelection}|a:${addRangeA.min}-${addRangeA.max},${addRangeB.min}-${addRangeB.max}` +
+      `|m:${multRangeA.min}-${multRangeA.max},${multRangeB.min}-${multRangeB.max}` +
+      `|t:${duration}`;
+  }, [opsSelection, addRangeA, addRangeB, multRangeA, multRangeB, duration]);
+
   useEffect(() => {
     let active = true;
     async function load() {
-      if (!opsString) return;
+      if (!opsSelection) return;
       const [runsRes, highRes] = await Promise.all([
-        fetchRuns({ mode: MODE, difficulty, ops: opsString, limit: 200 }),
-        fetchHighScore({ mode: MODE, difficulty, ops: opsString }),
+        fetchRuns({ mode: MODE, difficulty: "custom", ops: opsKey, limit: 200 }),
+        fetchHighScore({ mode: MODE, difficulty: "custom", ops: opsKey }),
       ]);
       if (!active) return;
       setRuns(runsRes.runs || []);
@@ -34,16 +44,24 @@ export default function StatsPage() {
     return () => {
       active = false;
     };
-  }, [difficulty, opsString]);
+  }, [opsSelection, opsKey]);
 
   return (
     <div className="stats-page">
       <div className="stats-header">
         <GameSettings
-          difficulty={difficulty}
-          setDifficulty={setDifficulty}
           ops={ops}
           setOps={setOps}
+          addRangeA={addRangeA}
+          setAddRangeA={setAddRangeA}
+          addRangeB={addRangeB}
+          setAddRangeB={setAddRangeB}
+          multRangeA={multRangeA}
+          setMultRangeA={setMultRangeA}
+          multRangeB={multRangeB}
+          setMultRangeB={setMultRangeB}
+          duration={duration}
+          setDuration={setDuration}
           disabled={false}
           compact
         />

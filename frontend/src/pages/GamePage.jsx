@@ -5,14 +5,17 @@ import GameHUD from "../components/GameHUD.jsx";
 import QuestionCard from "../components/QuestionCard.jsx";
 import GameOverModal from "../components/GameOverModal.jsx";
 
-const MODE = "timed_60";
-const GAME_SECONDS = 60;
+const MODE = "timed_custom";
 
 export default function GamePage() {
-  const [difficulty, setDifficulty] = useState("easy");
   const [ops, setOps] = useState({ "+": true, "-": true, "*": true, "/": false });
+  const [addRangeA, setAddRangeA] = useState({ min: 2, max: 100 });
+  const [addRangeB, setAddRangeB] = useState({ min: 2, max: 100 });
+  const [multRangeA, setMultRangeA] = useState({ min: 2, max: 12 });
+  const [multRangeB, setMultRangeB] = useState({ min: 2, max: 100 });
+  const [duration, setDuration] = useState(60);
   const [running, setRunning] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(GAME_SECONDS);
+  const [timeLeft, setTimeLeft] = useState(60);
   const [question, setQuestion] = useState(null);
   const [answer, setAnswer] = useState("");
   const [score, setScore] = useState(0);
@@ -22,10 +25,16 @@ export default function GamePage() {
   const [gameResult, setGameResult] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const opsString = useMemo(
+  const opsSelection = useMemo(
     () => Object.keys(ops).filter((key) => ops[key]).join(""),
     [ops]
   );
+
+  const opsKey = useMemo(() => {
+    return `${opsSelection}|a:${addRangeA.min}-${addRangeA.max},${addRangeB.min}-${addRangeB.max}` +
+      `|m:${multRangeA.min}-${multRangeA.max},${multRangeB.min}-${multRangeB.max}` +
+      `|t:${duration}`;
+  }, [opsSelection, addRangeA, addRangeB, multRangeA, multRangeB, duration]);
 
   useEffect(() => {
     if (!running) return undefined;
@@ -39,13 +48,26 @@ export default function GamePage() {
   }, [running, timeLeft]);
 
   useEffect(() => {
+    if (!running) {
+      setTimeLeft(duration);
+    }
+  }, [duration, running]);
+
+  useEffect(() => {
     if (!running || timeLeft > 0) return;
     setRunning(false);
     handleGameOver();
   }, [running, timeLeft]);
 
   async function loadQuestion() {
-    const next = await fetchQuestion({ difficulty, ops: opsString });
+    const next = await fetchQuestion({
+      difficulty: "custom",
+      ops: opsSelection,
+      ranges: {
+        add: { a: addRangeA, b: addRangeB },
+        mult: { a: multRangeA, b: multRangeB },
+      },
+    });
     setQuestion(next);
   }
 
@@ -55,7 +77,7 @@ export default function GamePage() {
     setAttempted(0);
     setCorrect(0);
     setGameResult(null);
-    setTimeLeft(GAME_SECONDS);
+    setTimeLeft(duration);
     setRunning(true);
     await loadQuestion();
     setAnswer("");
@@ -70,10 +92,10 @@ export default function GamePage() {
       setCorrect((prev) => prev + 1);
       setScore((prev) => prev + 1);
       setStreak((prev) => prev + 1);
+      await loadQuestion();
     } else {
       setStreak(0);
     }
-    await loadQuestion();
   }
 
   async function handleSubmit(event) {
@@ -90,8 +112,8 @@ export default function GamePage() {
     try {
       const result = await saveRun({
         mode: MODE,
-        difficulty,
-        ops: opsString,
+        difficulty: "custom",
+        ops: opsKey,
         score,
         attempted,
         correct,
@@ -113,10 +135,18 @@ export default function GamePage() {
   return (
     <div className="game-page">
       <GameSettings
-        difficulty={difficulty}
-        setDifficulty={setDifficulty}
         ops={ops}
         setOps={setOps}
+        addRangeA={addRangeA}
+        setAddRangeA={setAddRangeA}
+        addRangeB={addRangeB}
+        setAddRangeB={setAddRangeB}
+        multRangeA={multRangeA}
+        setMultRangeA={setMultRangeA}
+        multRangeB={multRangeB}
+        setMultRangeB={setMultRangeB}
+        duration={duration}
+        setDuration={setDuration}
         disabled={running}
       />
       <GameHUD
@@ -139,9 +169,9 @@ export default function GamePage() {
               type="button"
               className="primary"
               onClick={startGame}
-              disabled={!opsString}
+              disabled={!opsSelection}
             >
-              Start 60s Run
+              Start Run
             </button>
           ) : (
             <button

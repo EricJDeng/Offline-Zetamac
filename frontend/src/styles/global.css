@@ -92,6 +92,7 @@ a {
 
 .settings-group {
   min-width: 220px;
+  flex: 1;
 }
 
 .settings-label {
@@ -102,46 +103,63 @@ a {
   margin-bottom: 8px;
 }
 
-.segmented {
+.settings-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.settings-subtitle {
+  color: var(--muted);
+}
+
+.op-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 0;
+}
+
+.op-text {
+  display: grid;
+  gap: 4px;
+}
+
+.op-label {
+  font-weight: 700;
+}
+
+.op-note {
+  color: var(--muted);
+}
+
+.op-range {
   display: flex;
   gap: 8px;
-}
-
-.segment {
-  border: 1px solid var(--line);
-  background: transparent;
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.segment.active {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-}
-
-.segment:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.ops {
-  display: flex;
-  gap: 8px;
+  align-items: center;
   flex-wrap: wrap;
+  color: var(--muted);
 }
 
-.op-pill {
+.op-range input {
+  width: 80px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+
+.duration-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: #fff;
+  gap: 12px;
+  margin-top: 12px;
   font-weight: 600;
+}
+
+.duration-row select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
 }
 
 .hud {

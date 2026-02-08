@@ -41,12 +41,29 @@ DIFFICULTY_RANGES = {
     "easy": RangeConfig(add_sub_min=1, add_sub_max=20, mult_min=1, mult_max=12),
     "med": RangeConfig(add_sub_min=10, add_sub_max=99, mult_min=2, mult_max=19),
     "hard": RangeConfig(add_sub_min=100, add_sub_max=999, mult_min=11, mult_max=29),
+    "custom": RangeConfig(add_sub_min=1, add_sub_max=20, mult_min=1, mult_max=12),
 }
+
+
+class RangePair(BaseModel):
+    min: int
+    max: int
+
+
+class OperationRanges(BaseModel):
+    a: RangePair
+    b: RangePair
+
+
+class QuestionRanges(BaseModel):
+    add: OperationRanges
+    mult: OperationRanges
 
 
 class QuestionRequest(BaseModel):
     difficulty: str
     ops: str
+    ranges: QuestionRanges | None = None
 
 
 class QuestionResponse(BaseModel):
@@ -120,39 +137,61 @@ def _pick_op(ops: str) -> str:
     return random.choice(normalized)
 
 
-def _generate_question(difficulty: str, ops: str) -> QuestionResponse:
+def _clamp_pair(pair: RangePair) -> tuple[int, int]:
+    low = min(pair.min, pair.max)
+    high = max(pair.min, pair.max)
+    return low, high
+
+
+def _generate_question(difficulty: str, ops: str, custom: QuestionRanges | None) -> QuestionResponse:
     if difficulty not in DIFFICULTY_RANGES:
         raise HTTPException(status_code=400, detail="Invalid difficulty")
 
-    ranges = DIFFICULTY_RANGES[difficulty]
+    if custom is None:
+        preset = DIFFICULTY_RANGES[difficulty]
+        add_a = (preset.add_sub_min, preset.add_sub_max)
+        add_b = (preset.add_sub_min, preset.add_sub_max)
+        mult_a = (preset.mult_min, preset.mult_max)
+        mult_b = (preset.mult_min, preset.mult_max)
+    else:
+        add_a = _clamp_pair(custom.add.a)
+        add_b = _clamp_pair(custom.add.b)
+        mult_a = _clamp_pair(custom.mult.a)
+        mult_b = _clamp_pair(custom.mult.b)
+
     op = _pick_op(ops)
 
-    if op in ["+", "-"]:
-        a = random.randint(ranges.add_sub_min, ranges.add_sub_max)
-        b = random.randint(ranges.add_sub_min, ranges.add_sub_max)
-        if op == "-" and difficulty in ["easy", "med"] and b > a:
-            a, b = b, a
-        answer = a + b if op == "+" else a - b
-        prompt = f"{a} {op} {b}"
+    if op == "+":
+        a = random.randint(*add_a)
+        b = random.randint(*add_b)
+        answer = a + b
+        prompt = f"{a} + {b}"
+    elif op == "-":
+        # Reverse addition: (a + b) - b
+        a = random.randint(*add_a)
+        b = random.randint(*add_b)
+        left = a + b
+        answer = a
+        prompt = f"{left} - {b}"
     elif op == "*":
-        a = random.randint(ranges.mult_min, ranges.mult_max)
-        b = random.randint(ranges.mult_min, ranges.mult_max)
+        a = random.randint(*mult_a)
+        b = random.randint(*mult_b)
         answer = a * b
         prompt = f"{a} × {b}"
     else:
-        # Division: ensure integer answers
-        b = random.randint(ranges.mult_min, ranges.mult_max)
-        k = random.randint(ranges.mult_min, ranges.mult_max)
-        a = b * k
-        answer = k
-        prompt = f"{a} ÷ {b}"
+        # Reverse multiplication: (a * b) / b
+        a = random.randint(*mult_a)
+        b = random.randint(*mult_b)
+        left = a * b
+        answer = a
+        prompt = f"{left} ÷ {b}"
 
     return QuestionResponse(id=str(uuid.uuid4()), prompt=prompt, answer=answer)
 
 
 @app.post("/api/question", response_model=QuestionResponse)
 def create_question(payload: QuestionRequest) -> QuestionResponse:
-    return _generate_question(payload.difficulty, payload.ops)
+    return _generate_question(payload.difficulty, payload.ops, payload.ranges)
 
 
 @app.post("/api/runs", response_model=RunCreateResponse)
@@ -275,4 +314,3 @@ def list_runs(
         for row in rows
     ]
     return {"runs": results}
-

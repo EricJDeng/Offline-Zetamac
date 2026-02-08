@@ -1,10 +1,10 @@
 const API_BASE = "http://localhost:8000";
 
-export async function fetchQuestion({ difficulty, ops }) {
+export async function fetchQuestion({ difficulty, ops, ranges }) {
   const res = await fetch(`${API_BASE}/api/question`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ difficulty, ops }),
+    body: JSON.stringify({ difficulty, ops, ranges }),
   });
   if (!res.ok) throw new Error("Failed to fetch question");
   return res.json();
