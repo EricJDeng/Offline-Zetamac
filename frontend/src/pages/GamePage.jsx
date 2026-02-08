@@ -1,0 +1,165 @@
+import { useEffect, useMemo, useState } from "react";
+import { fetchQuestion, saveRun } from "../api.js";
+import GameSettings from "../components/GameSettings.jsx";
+import GameHUD from "../components/GameHUD.jsx";
+import QuestionCard from "../components/QuestionCard.jsx";
+import GameOverModal from "../components/GameOverModal.jsx";
+
+const MODE = "timed_60";
+const GAME_SECONDS = 60;
+
+export default function GamePage() {
+  const [difficulty, setDifficulty] = useState("easy");
+  const [ops, setOps] = useState({ "+": true, "-": true, "*": true, "/": false });
+  const [running, setRunning] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(GAME_SECONDS);
+  const [question, setQuestion] = useState(null);
+  const [answer, setAnswer] = useState("");
+  const [score, setScore] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [attempted, setAttempted] = useState(0);
+  const [correct, setCorrect] = useState(0);
+  const [gameResult, setGameResult] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const opsString = useMemo(
+    () => Object.keys(ops).filter((key) => ops[key]).join(""),
+    [ops]
+  );
+
+  useEffect(() => {
+    if (!running) return undefined;
+    if (timeLeft <= 0) return undefined;
+
+    const intervalId = setInterval(() => {
+      setTimeLeft((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [running, timeLeft]);
+
+  useEffect(() => {
+    if (!running || timeLeft > 0) return;
+    setRunning(false);
+    handleGameOver();
+  }, [running, timeLeft]);
+
+  async function loadQuestion() {
+    const next = await fetchQuestion({ difficulty, ops: opsString });
+    setQuestion(next);
+  }
+
+  async function startGame() {
+    setScore(0);
+    setStreak(0);
+    setAttempted(0);
+    setCorrect(0);
+    setGameResult(null);
+    setTimeLeft(GAME_SECONDS);
+    setRunning(true);
+    await loadQuestion();
+    setAnswer("");
+  }
+
+  async function submitAnswer(value) {
+    if (!running || !question) return;
+    const parsed = Number.parseInt(value, 10);
+    const isCorrect = Number.isFinite(parsed) && parsed === question.answer;
+    setAttempted((prev) => prev + 1);
+    if (isCorrect) {
+      setCorrect((prev) => prev + 1);
+      setScore((prev) => prev + 1);
+      setStreak((prev) => prev + 1);
+    } else {
+      setStreak(0);
+    }
+    await loadQuestion();
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    const current = answer.trim();
+    if (!current) return;
+    setAnswer("");
+    await submitAnswer(current);
+  }
+
+  async function handleGameOver() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const result = await saveRun({
+        mode: MODE,
+        difficulty,
+        ops: opsString,
+        score,
+        attempted,
+        correct,
+      });
+      setGameResult({
+        score,
+        attempted,
+        correct,
+        isNewHighScore: result.is_new_high_score,
+        bestScore: result.best_score,
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const accuracy = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
+
+  return (
+    <div className="game-page">
+      <GameSettings
+        difficulty={difficulty}
+        setDifficulty={setDifficulty}
+        ops={ops}
+        setOps={setOps}
+        disabled={running}
+      />
+      <GameHUD
+        score={score}
+        streak={streak}
+        timeLeft={timeLeft}
+        accuracy={accuracy}
+      />
+      <div className="game-area">
+        <QuestionCard
+          question={question}
+          running={running}
+          answer={answer}
+          setAnswer={setAnswer}
+          onSubmit={handleSubmit}
+        />
+        <div className="game-actions">
+          {!running ? (
+            <button
+              type="button"
+              className="primary"
+              onClick={startGame}
+              disabled={!opsString}
+            >
+              Start 60s Run
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => setTimeLeft(0)}
+            >
+              End Run
+            </button>
+          )}
+        </div>
+      </div>
+      {gameResult && (
+        <GameOverModal
+          result={gameResult}
+          onClose={() => setGameResult(null)}
+        />
+      )}
+    </div>
+  );
+}
